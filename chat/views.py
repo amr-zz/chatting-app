@@ -55,7 +55,7 @@ class UpdateConversation(APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 
     def patch(self, request, pk=None, format=None):
-        
+
         try:
             conversation = Conversation.objects.get(pk=pk, members=request.user)
         except Conversation.DoesNotExist:
@@ -67,4 +67,17 @@ class UpdateConversation(APIView):
             return Response({"message": "Conversation updated successfully!"})
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    
+class DeleteConversation(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def delete(self, request, pk=None, format=None):
+        try:
+            conversation = Conversation.objects.get(pk=pk, members=request.user)
+        except Conversation.DoesNotExist:
+            return Response({"message": f"Conversation with id {pk} not found or you are not a member."}, status=status.HTTP_404_NOT_FOUND)
+        self.check_object_permissions(request, conversation)
+        conversation.delete()
+        return Response({"message": "Conversation deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
 
