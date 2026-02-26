@@ -23,10 +23,10 @@ class CreateConversation(APIView):
 
 class ListConversations(APIView):
 
-    permission_classes = [IsAdminUser]
-
+    permission_classes = [IsAuthenticated]
+    
     def get(self, request, format=None):
-        return Response(ConversationSerializer(Conversation.objects.all(),many=True).data)
+        return Response(ConversationSerializer(Conversation.objects.filter(members=request.user),many=True).data)
 
 
 
