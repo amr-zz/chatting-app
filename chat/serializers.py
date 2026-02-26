@@ -11,6 +11,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ConversationSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
+    messages = MessageSerializer(many=True, read_only=True)
     class Meta:
         model = Conversation
         fields = [
