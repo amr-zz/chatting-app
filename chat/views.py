@@ -14,7 +14,7 @@ class CreateConversation(APIView):
     permission_classes = [IsAuthenticated,]
 
     def post(self,request,*args,**kwargs):
-        serializer = ConversationSerializer(data=request.data)
+        serializer = ConversationSerializer(data=request.data,context={'request':request})
         if serializer.is_valid():
             serializer.save()
             return Response({'Message': 'Converstaion Created Successfully!'}, status=status.HTTP_201_CREATED)
@@ -24,7 +24,7 @@ class CreateConversation(APIView):
 class ListConversations(APIView):
 
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, format=None):
         return Response(ConversationSerializer(Conversation.objects.filter(members=request.user),many=True).data)
 
