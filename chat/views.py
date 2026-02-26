@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .serializers import ConversationSerializer
+from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework import status
 from .models import Conversation
 from rest_framework.views import APIView
@@ -22,18 +22,29 @@ class CreateConversation(APIView):
     
 
 class ListConversations(APIView):
-
     permission_classes = [IsAuthenticated]
-
     def get(self, request, format=None):
         return Response(ConversationSerializer(Conversation.objects.filter(members=request.user),many=True).data)
+    
+class DetailConversation(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, pk=None, format=None):
+        qs = Conversation.objects.filter(pk=pk, members=request.user)
 
+        if not qs.exists():
+            return Response({"error": f"Conversation with id {pk} not found or you are not a member."},status=status.HTTP_404_NOT_FOUND)
+        serializer = ConversationSerializer(qs[0])
+        return Response(serializer.data)
+    
+class DisplayConversationMessages(APIView):
+    permission_classes = [IsAuthenticated]
 
-# class ReadConversation(APIView):
+    def get(self,request,pk=None, format=None):
 
-#     # permission_classes=[IsAuthenticated,]
-
-#     def get(self,request,*args,**kwargs):
-#         data = request.query_params.get('messages')
-#         return Response({'Messages': data})
+        qs = Conversation.objects.filter(pk=pk, members=request.user)
+        print(qs)
+        if not qs.exists():
+            return Response({"error": f"Conversation with id {pk} not found or you are not a member."},status=status.HTTP_404_NOT_FOUND)
+        serializer = ConversationSerializer(qs[0])
+        return Response(serializer.data['messages'])
