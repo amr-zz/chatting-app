@@ -26,7 +26,9 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ConversationSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
+    conversation_created_by = serializers.CharField(source='conversation_created_by.username', read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
+    members = serializers.SerializerMethodField()
     class Meta:
         model = Conversation
         fields = [
@@ -36,12 +38,19 @@ class ConversationSerializer(serializers.ModelSerializer):
             'conversation_created_by',
             'members',
             'messages',
-            'member_count'
+            'member_count',
         ]
         read_only_fields = ['messages','conversation_created_by']
 
     def get_member_count(self,obj):
         return obj.members.count()
+    
+    def get_members(self,obj):
+        members = []
+        for member in obj.members.all():
+            members.append({"username": member.username,
+                            "profile_image": member.profile_image.url})
+        return members
     
     def create(self,validated_data):
         members_data = validated_data.pop('members',[])
