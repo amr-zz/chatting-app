@@ -39,6 +39,8 @@ class ConversationSerializer(serializers.ModelSerializer):
             'members',
             'messages',
             'member_count',
+            'color',
+            'emoji'
         ]
         read_only_fields = ['messages','conversation_created_by']
 
@@ -61,6 +63,8 @@ class ConversationSerializer(serializers.ModelSerializer):
             conversation_name=validated_data['conversation_name'],
             conversation_description=validated_data['conversation_description'],
             conversation_created_by=user,
+            color=validated_data['color'],
+            emoji=validated_data['emoji']
         )
         conversation.members.set(members_data)
         conversation.messages.set([])
