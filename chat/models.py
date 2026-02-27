@@ -11,7 +11,7 @@ class Conversation(models.Model):
     conversation_name = models.CharField(max_length=256)
     conversation_description = models.TextField()
     conversation_created_by = models.ForeignKey(MyUser, on_delete=models.DO_NOTHING,related_name='created_by')
-    members = models.ManyToManyField(MyUser,related_name='members',null=False)
+    members = models.ManyToManyField(MyUser,related_name='members')
     created_at = models.DateTimeField(auto_now_add=True)
 
 class Message(models.Model):
