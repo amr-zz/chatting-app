@@ -2,7 +2,7 @@ from django.shortcuts import render
 import json
 from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework import status
-from .models import Conversation
+from .models import Conversation, Message
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsOwnerOrReadOnly
@@ -96,3 +96,37 @@ class SendMessage(APIView):
             return Response({"message": "Message sent successfully!"}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+class UpdateMessage(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def patch(self, request, pk=None, format=None):
+        try:
+            message = Message.objects.get(pk=pk, message_sender=request.user)
+        except Message.DoesNotExist:
+            return Response({"message": f"Message with id {pk} not found or you are not the sender."}, status=status.HTTP_404_NOT_FOUND)
+        
+        self.check_object_permissions(request, message)
+        serializer = MessageSerializer(message, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Message updated successfully!"})
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+class DeleteMessage(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def delete(self, request, pk=None, format=None):
+        try:
+            message = Message.objects.get(pk=pk, message_sender=request.user)
+        except Message.DoesNotExist:
+            return Response({"message": f"Message with id {pk} not found or you are not the sender."}, status=status.HTTP_404_NOT_FOUND)
+        
+        self.check_object_permissions(request, message)
+        try: 
+            message.delete()
+        except Exception as e:
+            return Response({"message": f"An error occurred while deleting the message: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message": "Message deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+        
