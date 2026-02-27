@@ -14,6 +14,8 @@ class UserRegsterationView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            user.is_verified = True
+            user.save()
             refresh = RefreshToken.for_user(user)
             return Response({"refresh": str(refresh),
                              'access': str(refresh.access_token)}, status=status.HTTP_201_CREATED)
