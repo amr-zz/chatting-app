@@ -1,5 +1,6 @@
 from django.shortcuts import render
 import json
+from django.db.models import Q
 from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework import status
 from .models import Conversation, Message
@@ -29,6 +30,14 @@ class ListConversations(APIView):
 
     def get(self, request, format=None):
         return Response(ConversationSerializer(Conversation.objects.filter(members=request.user),many=True).data)
+    
+
+class DiscoverConversations(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format=None):
+        return Response(ConversationSerializer(Conversation.objects.filter(~Q(members=request.user)),many=True).data)
     
 class DetailConversation(APIView):
     permission_classes = [IsAuthenticated]
