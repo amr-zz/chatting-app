@@ -4,7 +4,8 @@ from .views import (CreateConversation,
                     DetailConversation,
                     DisplayConversationMessages,
                     UpdateConversation,
-                    DeleteConversation)
+                    DeleteConversation,
+                    SendMessage)
 
 
 urlpatterns = [
@@ -13,5 +14,6 @@ urlpatterns = [
     path('update/<int:pk>/', UpdateConversation.as_view()),
     path('delete/<int:pk>/', DeleteConversation.as_view()),
     path('messages/<int:pk>/',DisplayConversationMessages.as_view()),
-    path('create/', CreateConversation.as_view())
+    path('create/', CreateConversation.as_view()),
+    path('messages/send/<int:pk>/', SendMessage.as_view()),
 ]
