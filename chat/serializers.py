@@ -4,9 +4,24 @@ from rest_framework import serializers
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    conversation_id = serializers.IntegerField(source='conversation.id', read_only=True)
+    message_sender = serializers.CharField(source='message_sender.username', read_only=True)
+    message_sender_id = serializers.IntegerField(source='message_sender.id', read_only=True)
+    conversation = serializers.CharField(source='conversation.conversation_name', read_only=True)
+    message_sent_at = serializers.DateTimeField(read_only=True, format="%Y/%m/%d %H:%M")
     class Meta:
         model = Message
-        fields = '__all__'
+        fields = [
+            'id',
+            'conversation',
+            'message_content',
+            'message_sender',
+            'conversation_id',
+            'message_sender_id',
+            'message_sent_at'
+        ]
+        read_only_fields = ['message_sender','conversation','conversation_id','message_sender_id','message_sent_at']
+
 
 
 class ConversationSerializer(serializers.ModelSerializer):
