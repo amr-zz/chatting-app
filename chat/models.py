@@ -13,6 +13,8 @@ class Conversation(models.Model):
     conversation_created_by = models.ForeignKey(MyUser, on_delete=models.DO_NOTHING,related_name='created_by')
     members = models.ManyToManyField(MyUser,related_name='members')
     created_at = models.DateTimeField(auto_now_add=True)
+    emoji = models.TextField(max_length=20)
+    color = models.TextField(max_length=30)
 
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE,related_name='messages')
