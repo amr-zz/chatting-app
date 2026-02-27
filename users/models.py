@@ -7,8 +7,7 @@ from authemail.models import EmailUserManager, EmailAbstractUser
 
 class MyUser(EmailAbstractUser):
     username = models.CharField(max_length=150, unique=True)
-    first_name = models.CharField(max_length=30, blank=True)
-    last_name = models.CharField(max_length=30, blank=True)
+    full_name = models.CharField(max_length=80, blank=True)
     profile_image = models.ImageField(
         upload_to='profile_images/',
         blank=True,
