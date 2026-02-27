@@ -17,3 +17,9 @@ def reset_password(request):
 
 def register_page(request):
     return render(request, 'frontend/register.html')
+
+def conversations(request):
+    return render(request, 'frontend/conversations.html')
+
+def create_conversation(request):
+    return render(request, 'frontend/create_edit_group.html')
