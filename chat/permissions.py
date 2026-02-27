@@ -7,4 +7,6 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
             return True
         if hasattr(obj, 'conversation_created_by'):
             return obj.conversation_created_by == request.user
+        if hasattr(obj, 'message_sender'):
+            return obj.message_sender == request.user
         return obj.owner == request.user
