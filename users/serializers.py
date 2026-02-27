@@ -19,7 +19,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     class Meta:
         model = MyUser
-        fields = ['username', 'email', 'password', 'password2','first_name','last_name','profile_image']
+        fields = ['username', 'email', 'password', 'password2','full_name','profile_image']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -36,8 +36,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
+            full_name=validated_data['full_name'],
             profile_image = validated_data.get('profile_image')
         )
         return user
