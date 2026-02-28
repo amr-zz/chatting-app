@@ -1,6 +1,8 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .models import Conversation, Message
 from channels.db import database_sync_to_async
+from django.shortcuts import redirect
+
 import json
 
 
@@ -16,11 +18,14 @@ class ConversationConsumer(AsyncWebsocketConsumer):
 
 
         users = await self.get_conversation_users(self.conversation_id)
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
-        await self.accept()
+        if self.scope['user'] not in users:
+            await self.close()
+        else:
+            await self.channel_layer.group_add(
+                self.group_name,
+                self.channel_name
+            )
+            await self.accept()
 
     async def disconnect(self, close_code):
         """Called when the websocket is disconnected."""
@@ -137,7 +142,7 @@ class ConversationConsumer(AsyncWebsocketConsumer):
             conversation = Conversation.objects.get(id=conversation_id)
         except Conversation.DoesNotExist:
             return []
-        return conversation.members.all()
+        return list(conversation.members.all())
     
     @database_sync_to_async
     def edit_message_in_db(self, message_id, new_content):
