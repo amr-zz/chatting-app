@@ -30,12 +30,12 @@ class ConversationConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        """Called when Recieving a message from the websocket."""
+        """Called when Recieving anything from the websocket."""
         data = json.loads(text_data)
-        message = data['message']
+        message = data.get('message',None)
         sender = self.scope['user'].username
 
-        if data.get('type') == 'conversation_message':
+        if data.get('type') == 'conversation_message' and message is not None:
             # save the message to the db
             await self.save_message(self.conversation_id, self.scope['user'], message)
 
@@ -58,6 +58,40 @@ class ConversationConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        elif data.get('type') == 'edit_message':
+            updated = await self.edit_message_in_db(data['message_id'], data['new_content'])
+            if updated:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        'type': 'edit_message',
+                        'message_id': data['message_id'],
+                        'new_content': data['new_content']
+                    }
+                )
+            else:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'failed to edit.'
+                }))
+        elif data.get('type') == 'delete_message':
+            deleted = await self.delete_message_in_db(data['message_id'])
+
+            if deleted:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        'type': 'delete_message',
+                        'message_id': data['message_id']
+                    }
+                )
+            else:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'failed to delete.'
+                }))
+
+
     async def conversation_message(self, event):
         """Called when a message is sent to the websocket."""
         await self.send(text_data=json.dumps({
@@ -71,6 +105,21 @@ class ConversationConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'typing',
             'sender': event['sender']
+        }))
+
+    async def edit_message(self, event):
+        """Called when a message is edited."""
+        await self.send(text_data=json.dumps({
+            'type': 'edit_message',
+            'message_id': event['message_id'],
+            'new_content': event['new_content']
+        }))
+    
+    async def delete_message(self, event):
+        """Called when a message is deletd."""
+        await self.send(text_data=json.dumps({
+            'type': 'delete_message',
+            'message_id': event['message_id']
         }))
 
     @database_sync_to_async
@@ -89,10 +138,25 @@ class ConversationConsumer(AsyncWebsocketConsumer):
         except Conversation.DoesNotExist:
             return []
         return conversation.members.all()
-
-
-
-
+    
+    @database_sync_to_async
+    def edit_message_in_db(self, message_id, new_content):
+        try:
+            message = Message.objects.get(id=message_id, message_sender=self.scope['user'])
+            message.message_content = new_content
+            message.save()
+            return True
+        except Message.DoesNotExist:
+            return False
+        
+    @database_sync_to_async
+    def delete_message_in_db(self, message_id):
+        try:
+            message = Message.objects.get(id=message_id, message_sender=self.scope['user'])
+            message.delete()
+            return True
+        except Message.DoesNotExist:
+            return False
 
         
 
