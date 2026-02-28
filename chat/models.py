@@ -21,3 +21,9 @@ class Message(models.Model):
     message_content = models.CharField(max_length=1024)
     message_sender = models.ForeignKey(MyUser, on_delete=models.CASCADE)
     message_sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-message_sent_at']
+
+    def __str__(self):
+        return f'Message from {self.message_sender}: {self.message_content}.'
