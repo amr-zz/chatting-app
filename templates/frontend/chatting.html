@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ conversation.conversation_name }} — Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #e8e8f0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* back-to-conversations */
+    #back-to-conversations{
+      background-color: #854ff3;
+      border-radius: 100px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+    }
+
+    /* ── HEADER ── */
+    .header {
+      padding: 14px 20px;
+      background: #111118;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .header-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      background: "{{ conversation.color }}";
+    }
+    .header-name { font-size: 16px; font-weight: 600; color: #fff; }
+    .header-desc { font-size: 12px; color: #6b6b80; margin-top: 2px; }
+
+    .ws-status {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-weight: 500;
+    }
+    .ws-status.connecting   { background: rgba(251,191,36,0.1);  color: #fbbf24; }
+    .ws-status.connected    { background: rgba(52,211,153,0.1);  color: #34d399; }
+    .ws-status.disconnected { background: rgba(248,113,113,0.1); color: #f87171; }
+
+    /* ── MESSAGES ── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-thumb { background: #3e3e52; border-radius: 4px; }
+
+    .msg-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      max-width: 70%;
+    }
+    .msg-row.me {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #8b5cf6;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .msg-body { display: flex; flex-direction: column; gap: 3px; }
+    .msg-row.me .msg-body { align-items: flex-end; }
+
+    .msg-sender { font-size: 11px; color: #6b6b80; padding: 0 4px; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .bubble.them {
+      background: #1c1c28;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.me {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-time { font-size: 10px; color: #3e3e52; padding: 0 4px; }
+
+    /* ── TYPING ── */
+    #typing-indicator {
+      padding: 0 20px 6px;
+      font-size: 12px;
+      color: #6b6b80;
+      min-height: 24px;
+      flex-shrink: 0;
+    }
+
+    /* ── INPUT ── */
+    .input-area {
+      padding: 12px 16px 16px;
+      background: #111118;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    #msg-input {
+      flex: 1;
+      overflow: hidden;
+      padding: 11px 14px;
+      background: #1c1c28;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      color: #e8e8f0;
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+    }
+    #msg-input:focus { border-color: rgba(139,92,246,0.5); }
+    #msg-input::placeholder { color: #6b6b80; }
+    #msg-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #send-btn {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    #send-btn:hover:not(:disabled) { opacity: 0.85; transform: scale(1.05); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #send-btn svg { width: 18px; height: 18px; }
+  </style>
+  {% load static %}
+  <script src="{% static 'token.js' %}"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <a href="/conversations" id="back-to-conversations">
+        <svg width="22px" hieght="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.7071 4.29289C12.0976 4.68342 12.0976 5.31658 11.7071 5.70711L6.41421 11H20C20.5523 11 21 11.4477 21 12C21 12.5523 20.5523 13 20 13H6.41421L11.7071 18.2929C12.0976 18.6834 12.0976 19.3166 11.7071 19.7071C11.3166 20.0976 10.6834 20.0976 10.2929 19.7071L3.29289 12.7071C3.10536 12.5196 3 12.2652 3 12C3 11.7348 3.10536 11.4804 3.29289 11.2929L10.2929 4.29289C10.6834 3.90237 11.3166 3.90237 11.7071 4.29289Z" fill="#fff"></path> </g></svg>
+    </a>
+    <div class="header-icon">{{ conversation.emoji }}</div>
+    <div>
+      <div class="header-name">{{ conversation.conversation_name }}</div>
+      <div class="header-desc">{{ conversation.conversation_description }}</div>
+    </div>
+    <div class="ws-status connecting" id="ws-status">Connecting…</div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="messages"></div>
+
+  <!-- TYPING -->
+  <div id="typing-indicator"></div>
+
+  <!-- INPUT -->
+  <div class="input-area">
+    <textarea
+      id="msg-input"
+      placeholder="Message {{ conversation.conversation_name }}…"
+      rows="1"
+      maxlength="1024"
+      disabled
+      onkeydown="handleKey(event)"
+      oninput="autoResize(this); sendTyping();"
+    ></textarea>
+    <button id="send-btn" onclick="sendMessage()" disabled>
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+      </svg>
+    </button>
+  </div>
+
+<script>
+  // ── Django context ──────────────────────────────────────
+  const CONV_ID      = "{{ conversation.id }}";
+  const CONV_NAME    = "{{ conversation.conversation_name }}";
+  const CURRENT_USER = "{{ request.user.username }}";
+
+  // ── State ───────────────────────────────────────────────
+  let socket      = null;
+  let isTyping    = false;
+  let typingTimer = null;
+  let typingHide  = null;
+  let user = null;
+
+  // ── WebSocket ───────────────────────────────────────────
+  function connect() {
+    setStatus('connecting');
+    setInputEnabled(false);
+    let ACCESS_TOKEN = localStorage.getItem('access_token');
+    const REFRESH_TOKEN = localStorage.getItem('refresh_token');
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    socket = new WebSocket(
+      `${protocol}://${window.location.host}/ws/chat/${CONV_ID}/${CONV_NAME}/?token=${ACCESS_TOKEN}`
+    );  
+ 
+
+    socket.onopen = function(e) {
+      setStatus('connected');
+      setInputEnabled(true);
+      document.getElementById('msg-input').focus();
+    };
+
+    socket.addEventListener("message", function(e){
+        try {
+        const data = JSON.parse(event.data);
+        if (data.type === "username") {
+            user = data.username;
+            loadHistory();
+        }
+        } catch (err) {
+            console.error("Invalid JSON from server:", event.data);
+        }
+    })
+
+    socket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'conversation_message') {
+        appendMessage(data.sender, data.message);
+        hideTyping();
+      }
+
+      if (data.type === 'typing') {
+
+      
+        if (data.sender !== user) {
+          showTyping(data.sender);
+        }
+      }
+    };
+
+    socket.onclose = function(e) {
+      setStatus('disconnected');
+      
+      setInputEnabled(false);
+      switch (e.code){
+        case 4001:
+          expiredAccessToken(REFRESH_TOKEN).then((data)=>{
+          ACCESS_TOKEN = data
+        });
+        setTimeout(connect, 5000);
+        break;
+        case 4005:
+          window.location.href = "/conversations";
+          break;
+        default:
+          setTimeout(connect, 3000);
+          break;
+      }
+
+
+    };
+
+    socket.onerror = function(e) {
+      setStatus('disconnected');
+    };
+  }
+
+
+  
+
+  // ── Send message ────────────────────────────────────────
+  function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text  = input.value.trim();
+    if (!text || !socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({
+      type:    'conversation_message',
+      message: text
+    }));
+
+    input.value = '';
+    input.style.height = '';
+    stopTyping();
+  }
+
+  // ── Typing ──────────────────────────────────────────────
+  function sendTyping() {
+    if (isTyping) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    isTyping = true;
+    
+    socket.send(JSON.stringify({
+      type:    'typing',
+      message: ''   // consumer always reads data['message'] so this is required
+    }));
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(stopTyping, 2500);
+  }
+
+  function stopTyping() {
+    isTyping = false;
+    clearTimeout(typingTimer);
+  }
+
+  function showTyping(sender) {
+    document.getElementById('typing-indicator').textContent = sender + ' is typing…';
+    clearTimeout(typingHide);
+    typingHide = setTimeout(hideTyping, 3000);
+  }
+
+  function hideTyping() {
+    document.getElementById('typing-indicator').textContent = '';
+  }
+
+  // ── Append message ──────────────────────────────────────
+  function appendMessage(sender, text) {
+    const me       = sender === user;
+    const messages = document.getElementById('messages');
+
+    const row = document.createElement('div');
+    row.className = 'msg-row' + (me ? ' me' : '');
+    row.innerHTML =
+      '<div class="avatar">' + sender.slice(0,2).toUpperCase() + '</div>' +
+      '<div class="msg-body">' +
+        '<div class="msg-sender">' + (me ? 'You' : escHtml(sender)) + '</div>' +
+        '<div class="bubble ' + (me ? 'me' : 'them') + '">' + escHtml(text) + '</div>' +
+        '<div class="msg-time">' + getTime() + '</div>' +
+      '</div>';
+
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  // ── Load history ────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      
+      const res = await fetch('/api/conversations/' + CONV_ID + '/', {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+        }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      // messages are newest-first, reverse to show oldest at top
+      const msgs = (data.messages || []).slice().reverse();
+      msgs.forEach(function(m) {
+        appendMessage(m.message_sender, m.message_content);
+      });
+    } catch(err) {
+      console.error('History error:', err);
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function autoResize(el) {
+    el.style.height = '';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function setStatus(state) {
+    const el     = document.getElementById('ws-status');
+    const labels = { connecting:'Connecting…', connected:'● Live', disconnected:'Reconnecting…' };
+    el.className = 'ws-status ' + state;
+    el.textContent = labels[state];
+  }
+
+  function setInputEnabled(yes) {
+    document.getElementById('msg-input').disabled = !yes;
+    document.getElementById('send-btn').disabled  = !yes;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function getTime() {
+    return new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  }
+
+  // ── Boot ────────────────────────────────────────────────
+  connect();
+</script>
+</body>
+</html>

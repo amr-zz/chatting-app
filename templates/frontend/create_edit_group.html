@@ -1,0 +1,528 @@
+{% extends "frontend/base_app.html" %}
+{% block title %}{% if is_edit %}Edit Group{% else %}Create Group{% endif %} — Echo{% endblock %}
+{% block nav_create %}{% if not is_edit %}active{% endif %}{% endblock %}
+
+{% block extra_style %}
+<style>
+  .create-main {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column;
+    align-items: center;
+    padding: 40px 24px 60px;
+    position: relative; z-index: 1;
+  }
+  .create-main::-webkit-scrollbar { width: 4px; }
+  .create-main::-webkit-scrollbar-track { background: transparent; }
+  .create-main::-webkit-scrollbar-thumb { background: var(--muted-2); border-radius: 4px; }
+
+  /* ── HEADER ── */
+  .create-header {
+    width: 100%; max-width: 680px;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 32px;
+    animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .create-back {
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 11px; color: var(--muted);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .create-back:hover { background: var(--surface-3); color: var(--text); border-color: var(--border-hi); }
+  .create-back svg { width: 18px; height: 18px; }
+  .create-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px; font-weight: 600; color: #fff;
+    letter-spacing: -0.4px;
+  }
+  .create-heading span {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .create-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+  /* ── CARD ── */
+  .create-card {
+    width: 100%; max-width: 680px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    animation: cardIn 0.45s cubic-bezier(0.22,1,0.36,1) 0.05s both;
+  }
+
+  /* banner preview */
+  .banner-preview {
+    height: 100px; position: relative; overflow: hidden;
+    cursor: pointer; transition: filter 0.2s;
+  }
+  .banner-preview:hover { filter: brightness(1.15); }
+  .banner-fill { position: absolute; inset: 0; transition: background 0.3s; }
+  .banner-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.35);
+    opacity: 0; transition: opacity 0.2s;
+    font-size: 13px; color: #fff; gap: 6px;
+  }
+  .banner-preview:hover .banner-overlay { opacity: 1; }
+  .banner-overlay svg { width: 16px; height: 16px; }
+
+  /* icon preview strip */
+  .icon-strip {
+    display: flex; gap: 8px; align-items: center;
+    padding: 16px 24px 0;
+    margin-top: -26px; position: relative; z-index: 1;
+  }
+  .group-icon-preview {
+    width: 54px; height: 54px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; border: 3px solid var(--surface);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    flex-shrink: 0; transition: transform 0.2s;
+  }
+  .group-icon-preview:hover { transform: scale(1.05); }
+
+  /* emoji picker row */
+  .emoji-row {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
+  }
+  .emoji-opt {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; cursor: pointer;
+    border: 2px solid transparent;
+    background: var(--surface-3);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .emoji-opt:hover { background: var(--surface-2); transform: scale(1.1); }
+  .emoji-opt.selected { border-color: var(--accent); background: rgba(139,92,246,0.1); }
+
+  /* colour picker */
+  .color-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .color-opt {
+    width: 32px; height: 32px; border-radius: 10px;
+    cursor: pointer; border: 3px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .color-opt:hover { transform: scale(1.1); }
+  .color-opt.selected { border-color: #fff; }
+
+  /* form body */
+  .form-body { padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 2px; }
+
+  /* char counter */
+  .field-footer { display: flex; justify-content: flex-end; margin-top: 4px; }
+  .char-count { font-size: 11px; color: var(--muted); }
+  .char-count.warn { color: var(--warning); }
+  .char-count.over { color: var(--danger); }
+
+  
+
+  /* form footer */
+  .form-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .form-footer-left { display: flex; gap: 10px; }
+  .form-footer-right { display: flex; gap: 10px; }
+
+  /* delete zone (edit mode only) */
+  .danger-zone {
+    width: 100%; max-width: 680px;
+    margin-top: 16px;
+    background: rgba(248,113,113,0.05);
+    border: 1px solid rgba(248,113,113,0.18);
+    border-radius: 16px;
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    animation: cardIn 0.45s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+  }
+  .danger-zone-info h4 { font-size: 14px; font-weight: 500; color: var(--danger); margin-bottom: 3px; }
+  .danger-zone-info p  { font-size: 13px; color: var(--muted); }
+
+  /* section title inside form */
+  .form-section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted-2);
+    padding: 14px 0 4px; margin-top: 4px;
+  }
+</style>
+{% endblock %}
+
+{% block shell_content %}
+<div class="create-main">
+
+  <!-- Header -->
+  <div class="create-header">
+    <a href="/conversations/" class="create-back">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <div>
+      <div class="create-heading">
+        {% if is_edit %}Edit <span>Group</span>{% else %}Create a <span>Group</span>{% endif %}
+      </div>
+      <div class="create-sub">
+        {% if is_edit %}Update your group's details, appearance, and settings.{% else %}Set up a new group conversation for your community.{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="create-card">
+
+    <!-- Banner picker -->
+    <div class="banner-preview" id="banner-preview" onclick="cycleBanner()">
+      <div class="banner-fill" id="banner-fill"></div>
+      <div class="banner-overlay">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Click to change banner
+      </div>
+    </div>
+
+    <!-- Icon strip -->
+    <div class="icon-strip">
+      <div class="group-icon-preview av-1" id="icon-preview">🎨</div>
+    </div>
+
+    <!-- Form body -->
+    <div class="form-body">
+
+      <div class="form-section-title">Identity</div>
+
+      <!-- Emoji picker -->
+      <div class="form-group">
+        <label>Group Emoji</label>
+        <div class="emoji-row" id="emoji-row">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Colour picker -->
+      <div class="form-group">
+        <label>Icon Colour</label>
+        <div class="color-row" id="color-row">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div class="form-group">
+        <label>Group Name <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="group-name" maxlength="60"
+          placeholder="e.g. Frontend Guild"
+          oninput="updateCharCount('group-name','name-count',60)"/>
+        <div class="field-footer"><span class="char-count" id="name-count">0 / 60</span></div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="group-desc" maxlength="280" rows="3"
+          placeholder="What is this group about? Give people a reason to join."
+          oninput="updateCharCount('group-desc','desc-count',280)"></textarea>
+        <div class="field-footer"><span class="char-count" id="desc-count">0 / 280</span></div>
+      </div>
+
+
+
+
+
+
+
+
+
+
+    <!-- Alert -->
+    <div style="padding: 0 24px">
+      <div class="alert error" id="form-error"></div>
+      <div class="alert success" id="form-success"></div>
+    </div>
+
+    <!-- Footer actions -->
+    <div class="form-footer">
+      <div class="form-footer-left">
+        <a href="/conversations/" class="btn-ghost">Cancel</a>
+      </div>
+      <div class="form-footer-right">
+        {% if is_edit %}
+        <button class="btn-ghost" id="preview-btn" onclick="previewGroup()">Preview</button>
+        {% endif %}
+        <button class="btn-primary" id="submit-btn" onclick="submitForm()">
+          <span class="btn-text">
+            {% if is_edit %}Save Changes{% else %}Create Group{% endif %}
+          </span>
+          <div class="spinner" style="display:none"></div>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /create-card -->
+
+  {% if is_edit %}
+  <!-- Danger zone -->
+  <div class="danger-zone">
+    <div class="danger-zone-info">
+      <h4>Delete this group</h4>
+      <p>This action is permanent and cannot be undone. All messages will be lost.</p>
+    </div>
+    <button class="btn-danger" onclick="deleteGroup()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+      Delete Group
+    </button>
+  </div>
+  {% endif %}
+
+</div><!-- /create-main -->
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-backdrop" id="delete-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('delete-modal')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div class="modal-title">Delete Group?</div>
+    <div class="modal-sub">This will permanently delete the group and all its messages. Type the CONFIRM to delete.</div>
+    <div class="form-group">
+      <input type="text" id="delete-confirm-input" placeholder="Type CONFIRM..."/>
+    </div>
+    <div class="alert error" id="delete-error"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-ghost" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn-danger" id="delete-confirm-btn" onclick="confirmDelete()">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+const IS_EDIT = "{{ is_edit }}" == "True";
+  let GROUP = "{{ group|safe }}";
+  let GROUP_ID ;
+if (IS_EDIT){
+  let groupStr = GROUP.replace(/'/g, '"');
+  GROUP = JSON.parse(groupStr);
+  GROUP_ID = GROUP.id;
+}
+
+
+let accessToken = localStorage.getItem('access_token') || null;
+const refreshToken = localStorage.getItem('refresh_token') || null;
+
+
+const EMOJIS = ['🎨','⚙️','🧭','💻','🎉','🔬','🤖','📈','🛠️','📊','🌐','🎵','📚','🏆','🚀','💡','🔥','✨','🌍','💬'];
+const COLORS  = [
+  { cls:'av-1', bg:'linear-gradient(135deg,#8b5cf6,#ec4899)' },
+  { cls:'av-2', bg:'linear-gradient(135deg,#06b6d4,#8b5cf6)' },
+  { cls:'av-3', bg:'linear-gradient(135deg,#f59e0b,#ef4444)' },
+  { cls:'av-4', bg:'linear-gradient(135deg,#10b981,#06b6d4)' },
+  { cls:'av-5', bg:'linear-gradient(135deg,#f97316,#ec4899)' },
+  { cls:'av-6', bg:'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+  { cls:'av-7', bg:'linear-gradient(135deg,#0ea5e9,#14b8a6)' },
+  { cls:'av-8', bg:'linear-gradient(135deg,#a855f7,#ec4899)' },
+];
+const BANNERS = COLORS.map(c => c.bg);
+
+let selectedEmoji = EMOJIS[0];
+let selectedColor = COLORS[0];
+
+if (IS_EDIT){
+  selectedEmoji = GROUP.emoji || EMOJIS[0];
+  selectedColor = COLORS.find(c => c.cls === GROUP.color) || COLORS[0];
+}
+
+let selectedBanner = 0;
+
+
+// check for existing values (edit mode)
+if (IS_EDIT) {
+   
+   document.getElementById('group-name').value = GROUP.conversation_name || '';
+   document.getElementById('group-desc').textContent = GROUP.conversation_description || '';
+}
+
+
+function previewGroup(){
+    window.location.href = `/conversations/${GROUP_ID}/`;
+}
+
+function initPickers() {
+  // Emojis
+  document.getElementById('emoji-row').innerHTML = EMOJIS.map(e =>
+    `<div class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="pickEmoji('${e}',this)">${e}</div>`
+  ).join('');
+
+  // Colors
+  document.getElementById('color-row').innerHTML = COLORS.map((c,i) =>
+    `<div class="color-opt ${i===0?'selected':''}" style="background:${c.bg}"
+      onclick="pickColor(${i},this)"></div>`
+  ).join('');
+
+  updateBanner();
+  syncIconPreview();
+  updateCharCount('group-name','name-count',60);
+  updateCharCount('group-desc','desc-count',280);
+}
+
+function pickEmoji(e, el) {
+  selectedEmoji = e;
+  document.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('selected'));
+  el.classList.add('selected');
+  syncIconPreview();
+}
+
+function pickColor(i, el) {
+  selectedColor = COLORS[i];
+  document.querySelectorAll('.color-opt').forEach(x=>x.classList.remove('selected'));
+  el.classList.add('selected');
+  syncIconPreview();
+}
+
+function cycleBanner() {
+  selectedBanner = (selectedBanner + 1) % BANNERS.length;
+  updateBanner();
+}
+
+function updateBanner() {
+  document.getElementById('banner-fill').style.background = BANNERS[selectedBanner];
+}
+
+function syncIconPreview() {
+  const el = document.getElementById('icon-preview');
+  el.textContent = selectedEmoji;
+  el.className = 'group-icon-preview ' + selectedColor.cls;
+}
+
+function updateCharCount(inputId, countId, max) {
+  const len = document.getElementById(inputId).value.length;
+  const el  = document.getElementById(countId);
+  el.textContent = `${len} / ${max}`;
+  el.className = 'char-count' + (len > max*0.9 ? (len >= max ? ' over' : ' warn') : '');
+}
+
+
+/* ── Submit ── */
+async function submitForm() {
+  const btn     = document.getElementById('submit-btn');
+  const errEl   = document.getElementById('form-error');
+  const okEl    = document.getElementById('form-success');
+  const spinner = btn.querySelector('.spinner');
+  const label   = btn.querySelector('.btn-text');
+
+  errEl.classList.remove('show');
+  okEl.classList.remove('show');
+
+  const conversation_name = document.getElementById('group-name').value.trim();
+  if (!conversation_name) {
+    errEl.textContent = 'Group name is required.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  const conversation_description = document.getElementById('group-desc').value.trim();
+    if (!conversation_description) {
+    errEl.textContent = 'Group Description name is required.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  const payload = {
+    conversation_name,
+    conversation_description,
+    emoji:        selectedEmoji,
+    color:        selectedColor.cls,
+  };
+
+  label.style.display = 'none';
+  spinner.style.display = 'block';
+  btn.disabled = true;
+  try {
+    const url    = IS_EDIT ? `${window.location.origin}/api/conversations/update/${GROUP_ID}/` : `${window.location.origin}/api/conversations/create/`;
+    const method = IS_EDIT ? 'PATCH' : 'POST';
+    const res  = await fetch(url, { method, headers: {'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+
+  try {
+      if (res.status === 401 && refreshToken) {
+        accessToken = await expiredAccessToken(refreshToken);
+        submitForm();
+      } else if (!res.ok) {
+        throw new Error(`Error fetching conversations: ${res.status}`);
+      } 
+  } catch (err) {
+    errEl.textContent = 'Unexpected Error Happend.';
+    errEl.classList.add('show');
+    return;
+  }
+
+
+    okEl.textContent = IS_EDIT ? 'Group updated successfully!' : 'Group created! Redirecting…';
+    okEl.classList.add('show');
+    setTimeout(() => window.location.href = '/conversations/', 1400);
+  } catch(err) {
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.add('show');
+  } finally {
+    label.style.display = '';
+    spinner.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+/* ── Delete ── */
+function deleteGroup() {
+  document.getElementById('delete-error').classList.remove('show');
+  document.getElementById('delete-confirm-input').value = '';
+  document.getElementById('delete-modal').classList.add('show');
+}
+
+async function confirmDelete() {
+  const name = document.getElementById('group-name').value.trim();
+  const typed = document.getElementById('delete-confirm-input').value.trim();
+  const errEl = document.getElementById('delete-error');
+
+  if (typed !== "CONFIRM") {
+    errEl.textContent = "Name doesn't match. Please type the exact group name.";
+    errEl.classList.add('show');
+    return;
+  }
+
+  try {
+    /* Real: await fetch(`/api/conversations/${GROUP_ID}/`, { method:'DELETE', headers: authHeaders() }); */
+    const res = await fetch(`${window.location.origin}/api/conversations/delete/${GROUP_ID}/`, { method:'DELETE', headers: {'Authorization': `Bearer ${accessToken}`} });
+    if (res.status === 401 && refreshToken) {
+      accessToken = await expiredAccessToken(refreshToken);
+      return confirmDelete();
+    } else if (!res.ok) {
+      throw new Error(`Error deleting conversation: ${res.status}`);
+    }
+    window.location.href = '/conversations/';
+  } catch {
+    errEl.textContent = 'Delete failed. Please try again.';
+    errEl.classList.add('show');
+  }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.getElementById('delete-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('delete-modal');
+});
+
+initPickers();
+</script>
+{% endblock %}

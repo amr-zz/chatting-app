@@ -1,0 +1,776 @@
+{% extends "base_app.html" %}
+{% block title %}{{ group.name }} — Echo{% endblock %}
+{% block nav_convs %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  /* ── LEFT SIDEBAR: group list ── */
+  .groups-sidebar {
+    width: var(--sidebar-w); min-width: var(--sidebar-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .groups-sidebar-head {
+    padding: 20px 18px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .groups-sidebar-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:600; color:#fff; }
+
+  .group-search { padding: 10px 14px; flex-shrink:0; border-bottom: 1px solid var(--border); }
+
+  .group-list { flex:1; overflow-y:auto; padding: 6px 0 12px; }
+  .group-list::-webkit-scrollbar { width:4px; }
+  .group-list::-webkit-scrollbar-track { background:transparent; }
+  .group-list::-webkit-scrollbar-thumb { background:var(--muted-2); border-radius:4px; }
+
+  .group-nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; margin: 1px 8px;
+    border-radius: 10px; cursor: pointer;
+    text-decoration: none; color: inherit;
+    transition: background 0.15s;
+  }
+  .group-nav-item:hover { background: var(--surface-3); }
+  .group-nav-item.active { background: rgba(139,92,246,0.12); }
+
+  .gni-icon { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+  .gni-meta { flex:1; min-width:0; }
+  .gni-name { font-size:13px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gni-preview { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+  .gni-badge { min-width:16px; height:16px; background:var(--accent); border-radius:8px; font-size:9px; font-weight:600; color:#fff; display:flex; align-items:center; justify-content:center; padding:0 4px; flex-shrink:0; }
+
+  /* ── CHAT AREA ── */
+  .chat-area { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; z-index:1; }
+
+  /* chat header */
+  .chat-header {
+    height:64px; padding:0 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.85); backdrop-filter: blur(14px);
+    flex-shrink:0; position:relative; z-index:2;
+  }
+  .chat-header-left  { display:flex; align-items:center; gap:12px; }
+  .chat-header-right { display:flex; gap:4px; align-items:center; }
+  .group-header-icon { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .group-header-name { font-size:15px; font-weight:500; color:#fff; }
+  .group-header-sub  { font-size:12px; color:var(--muted); margin-top:1px; display:flex; align-items:center; gap:4px; }
+  .online-dot { width:7px; height:7px; border-radius:50%; background:var(--success); display:inline-block; }
+
+  /* topic bar */
+  .topic-bar {
+    padding: 9px 20px; font-size:12px; color:var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: rgba(16,16,24,0.6);
+    display: flex; align-items: center; gap: 6px; flex-shrink:0;
+  }
+  .topic-bar svg { width:12px; height:12px; flex-shrink:0; }
+  .topic-bar span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* messages */
+  .messages {
+    flex:1; overflow-y:auto; padding:20px 20px 8px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .messages::-webkit-scrollbar { width:4px; }
+  .messages::-webkit-scrollbar-track { background:transparent; }
+  .messages::-webkit-scrollbar-thumb { background:var(--muted-2); border-radius:4px; }
+
+  .day-sep {
+    display:flex; align-items:center; gap:10px;
+    margin: 14px 0 10px; color:var(--muted); font-size:11px; letter-spacing:0.03em;
+  }
+  .day-sep::before, .day-sep::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* message row */
+  .msg-row {
+    display:flex; gap:10px; align-items:flex-start;
+    padding: 3px 6px; border-radius:10px;
+    transition: background 0.1s;
+    position:relative;
+  }
+  .msg-row:hover { background: rgba(255,255,255,0.025); }
+  .msg-row.me { flex-direction:row-reverse; }
+  .msg-row.continuation { margin-top:-4px; }
+  .msg-row.continuation .msg-sender-name { display:none; }
+  .msg-row.continuation .msg-time-stamp  { display:none; }
+  .msg-row.continuation .msg-avatar-wrap { visibility:hidden; }
+
+  .msg-avatar-wrap { flex-shrink:0; width:36px; margin-top:2px; }
+  .msg-avatar {
+    width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:#fff;
+  }
+
+  .msg-content { flex:1; min-width:0; }
+  .msg-row.me .msg-content { display:flex; flex-direction:column; align-items:flex-end; }
+
+  .msg-meta-row { display:flex; align-items:baseline; gap:8px; margin-bottom:4px; }
+  .msg-row.me .msg-meta-row { flex-direction:row-reverse; }
+  .msg-sender-name { font-size:13px; font-weight:500; color:var(--text); }
+  .msg-time-stamp  { font-size:11px; color:var(--muted); }
+
+  .bubble {
+    display:inline-block; padding:10px 14px;
+    border-radius:18px; font-size:14px; line-height:1.55;
+    word-break:break-word; max-width:72%;
+  }
+  .msg-row:not(.me) .bubble {
+    background:var(--them-bubble);
+    border:1px solid var(--border);
+    border-top-left-radius:5px;
+    color:var(--text);
+  }
+  .msg-row.me .bubble {
+    background:var(--me-bubble);
+    border-top-right-radius:5px;
+    color:#fff;
+  }
+  .msg-row.continuation:not(.me) .bubble { border-top-left-radius:18px; }
+  .msg-row.continuation.me .bubble { border-top-right-radius:18px; }
+
+  /* reactions */
+  .reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+  .reaction {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 8px; border-radius:99px;
+    background:var(--surface-3); border:1px solid var(--border);
+    font-size:12px; cursor:pointer;
+    transition:background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .reaction:hover { background:var(--surface-2); border-color:var(--border-hi); transform:scale(1.05); }
+  .reaction.mine { background:rgba(139,92,246,0.12); border-color:rgba(139,92,246,0.3); }
+  .reaction-count { font-size:11px; color:var(--muted); }
+
+  /* hover action bar */
+  .msg-actions {
+    position:absolute; right:12px; top:-14px;
+    display:none; gap:2px;
+    background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:3px 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    z-index:10;
+  }
+  .msg-row.me .msg-actions { right:auto; left:12px; }
+  .msg-row:hover .msg-actions { display:flex; }
+  .msg-action-btn {
+    width:28px; height:28px; border-radius:7px;
+    display:flex; align-items:center; justify-content:center;
+    background:none; border:none; cursor:pointer; font-size:14px;
+    color:var(--muted); transition:background 0.15s, color 0.15s;
+  }
+  .msg-action-btn:hover { background:var(--surface-3); color:var(--text); }
+  .msg-action-btn svg { width:14px; height:14px; }
+
+  /* system message */
+  .sys-msg {
+    text-align:center; font-size:12px; color:var(--muted-2);
+    padding:6px 0; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .sys-msg svg { width:12px; height:12px; }
+
+  /* typing */
+  .typing-row { display:flex; gap:10px; align-items:flex-end; padding: 4px 6px; }
+  .typing-bubble {
+    background:var(--them-bubble); border:1px solid var(--border);
+    border-radius:18px; border-bottom-left-radius:5px;
+    padding:11px 14px; display:flex; gap:4px; align-items:center;
+  }
+  .typing-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); animation:typingBounce 1.2s ease infinite; }
+  .typing-dot:nth-child(2) { animation-delay:0.2s; }
+  .typing-dot:nth-child(3) { animation-delay:0.4s; }
+  @keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+  .typing-who { font-size:11px; color:var(--muted); padding-bottom:2px; }
+
+  /* message anim */
+  @keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .new-msg { animation: msgIn 0.2s cubic-bezier(0.22,1,0.36,1) both; }
+
+  /* ── INPUT ── */
+  .chat-input-zone { padding:12px 16px 16px; flex-shrink:0; position:relative; z-index:2; }
+
+  /* reply bar */
+  .reply-bar {
+    display:none; align-items:center; gap:10px;
+    padding:8px 14px; margin-bottom:8px;
+    background:rgba(139,92,246,0.07);
+    border:1px solid rgba(139,92,246,0.2);
+    border-radius:10px; font-size:13px;
+  }
+  .reply-bar.show { display:flex; }
+  .reply-bar-line { width:3px; height:28px; background:var(--accent); border-radius:2px; flex-shrink:0; }
+  .reply-bar-content { flex:1; min-width:0; }
+  .reply-bar-sender { font-size:12px; color:var(--accent); font-weight:500; }
+  .reply-bar-text   { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reply-bar-close  { background:none; border:none; color:var(--muted); cursor:pointer; padding:4px; transition:color .15s; }
+  .reply-bar-close:hover { color:var(--text); }
+  .reply-bar-close svg { width:14px; height:14px; }
+
+  .chat-input-bar {
+    display:flex; align-items:flex-end; gap:10px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:18px; padding:10px 10px 10px 14px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .chat-input-bar:focus-within {
+    border-color:rgba(139,92,246,0.4);
+    box-shadow:0 0 0 3px var(--accent-glow);
+  }
+  .chat-input-bar textarea {
+    flex:1; background:none; border:none; outline:none;
+    color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px;
+    resize:none; line-height:1.5; max-height:120px; min-height:22px; padding:0;
+  }
+  .chat-input-bar textarea::placeholder { color:var(--muted); }
+  .input-actions { display:flex; gap:2px; align-items:flex-end; padding-bottom:2px; }
+  .send-btn {
+    width:36px; height:36px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+    border:none; border-radius:12px; color:#fff; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:transform .15s, box-shadow .2s, opacity .15s;
+    box-shadow:0 2px 12px var(--accent-glow);
+  }
+  .send-btn:hover { transform:scale(1.06); box-shadow:0 4px 18px var(--accent-glow); }
+  .send-btn:active { transform:scale(0.96); }
+  .send-btn:disabled { opacity:.5; }
+  .send-btn svg { width:16px; height:16px; }
+
+  /* ── RIGHT PANEL: members ── */
+  .members-panel {
+    width:240px; min-width:240px;
+    background:var(--surface); border-left:1px solid var(--border);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .members-panel-head {
+    padding:20px 16px 14px; border-bottom:1px solid var(--border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .members-panel-title { font-size:13px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:0.07em; }
+  .members-count { font-size:12px; color:var(--muted); background:var(--surface-3); padding:2px 8px; border-radius:99px; }
+  .members-body { flex:1; overflow-y:auto; padding:8px 0 12px; }
+  .members-body::-webkit-scrollbar { width:3px; }
+  .members-body::-webkit-scrollbar-track { background:transparent; }
+  .members-body::-webkit-scrollbar-thumb { background:var(--muted-2); border-radius:3px; }
+
+  .member-section-label { font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted-2); padding:10px 16px 5px; }
+
+  .member-item {
+    display:flex; align-items:center; gap:9px;
+    padding:7px 12px; border-radius:9px; margin:1px 6px;
+    cursor:pointer; transition:background .15s;
+  }
+  .member-item:hover { background:var(--surface-3); }
+  .member-avatar {
+    width:30px; height:30px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:600; color:#fff; flex-shrink:0;
+    position:relative;
+  }
+  .member-status {
+    position:absolute; bottom:-1px; right:-1px;
+    width:9px; height:9px; border-radius:50%;
+    border:2px solid var(--surface);
+  }
+  .member-status.online  { background:var(--success); }
+  .member-status.away    { background:var(--warning); }
+  .member-status.offline { background:var(--muted-2); }
+  .member-name { font-size:13px; color:var(--text); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .member-role { font-size:10px; color:var(--accent); background:rgba(139,92,246,0.1); padding:1px 6px; border-radius:4px; font-weight:500; }
+
+  /* info bar above members */
+  .group-info-bar {
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    display:flex; flex-direction:column; gap:8px; flex-shrink:0;
+  }
+  .info-stat { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+  .info-stat-label { color:var(--muted); }
+  .info-stat-val   { color:var(--text); font-weight:500; }
+
+  .panel-actions { padding:10px 12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+  .panel-btn {
+    width:100%; padding:9px 12px;
+    display:flex; align-items:center; gap:8px;
+    background:none; border:none; border-radius:9px;
+    color:var(--muted); font-family:'DM Sans',sans-serif; font-size:13px;
+    cursor:pointer; transition:background .15s, color .15s;
+    text-decoration:none;
+  }
+  .panel-btn:hover { background:var(--surface-3); color:var(--text); }
+  .panel-btn.danger:hover { background:var(--danger-bg); color:var(--danger); }
+  .panel-btn svg { width:15px; height:15px; }
+
+  @media (max-width:1100px) { .members-panel { display:none; } }
+  @media (max-width:900px)  { .groups-sidebar { display:none; } }
+</style>
+{% endblock %}
+
+{% block shell_content %}
+
+<!-- ── GROUP LIST SIDEBAR ── -->
+<aside class="groups-sidebar">
+  <div class="groups-sidebar-head">
+    <span class="groups-sidebar-title">Groups</span>
+    <a href="/conversations/create/" class="icon-btn" title="New group">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+    </a>
+  </div>
+  <div class="group-search">
+    <div class="search-wrap">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input type="text" placeholder="Find a group…"/>
+    </div>
+  </div>
+  <div class="group-list" id="group-nav-list">
+    <!-- rendered by JS -->
+  </div>
+</aside>
+
+<!-- ── CHAT AREA ── -->
+<div class="chat-area">
+  <div class="main" style="display:flex;flex-direction:column">
+
+    <!-- Chat header -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="group-header-icon av-1" id="group-icon-el">🎨</div>
+        <div>
+          <div class="group-header-name" id="group-name-el">Design System</div>
+          <div class="group-header-sub">
+            <span class="online-dot"></span>
+            <span id="group-online-el">18 online</span>
+            <span style="color:var(--muted-2)">·</span>
+            <span id="group-members-el">124 members</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-header-right">
+        <button class="icon-btn" title="Search messages">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" title="Pinned messages">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+          </svg>
+        </button>
+        <a href="/conversations/{{ group.id }}/edit/" class="icon-btn" title="Edit group">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Topic bar -->
+    <div class="topic-bar" id="topic-bar">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+      </svg>
+      <span id="topic-text">Crafting cohesive, beautiful component libraries and design tokens.</span>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <!-- rendered by JS -->
+    </div>
+
+    <!-- Input zone -->
+    <div class="chat-input-zone">
+      <div class="reply-bar" id="reply-bar">
+        <div class="reply-bar-line"></div>
+        <div class="reply-bar-content">
+          <div class="reply-bar-sender" id="reply-sender"></div>
+          <div class="reply-bar-text"   id="reply-text"></div>
+        </div>
+        <button class="reply-bar-close" onclick="cancelReply()">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chat-input-bar">
+        <button class="icon-btn" title="Attach file">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+          </svg>
+        </button>
+        <textarea id="msg-input" placeholder="Message #design-system…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <div class="input-actions">
+          <button class="icon-btn" onclick="toggleEmoji()" title="Emoji">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </button>
+          <button class="send-btn" onclick="sendMessage()" id="send-btn" title="Send (Enter)">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <!-- Quick emoji picker -->
+      <div id="emoji-picker" style="display:none;padding:8px 4px 0;display:none">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:8px">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── MEMBERS PANEL ── -->
+<aside class="members-panel">
+  <div class="group-info-bar">
+    <div class="info-stat"><span class="info-stat-label">Members</span><span class="info-stat-val" id="panel-members">124</span></div>
+    <div class="info-stat"><span class="info-stat-label">Online now</span><span class="info-stat-val" style="color:var(--success)" id="panel-online">18</span></div>
+    <div class="info-stat"><span class="info-stat-label">Created</span><span class="info-stat-val">Jan 2025</span></div>
+  </div>
+
+  <div class="members-panel-head">
+    <span class="members-panel-title">Members</span>
+    <span class="members-count" id="panel-count">124</span>
+  </div>
+
+  <div class="members-body" id="members-body">
+    <!-- rendered by JS -->
+  </div>
+
+  <div class="panel-actions">
+    <a href="/conversations/{{ group.id }}/edit/" class="panel-btn">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+      </svg>
+      Edit Group
+    </a>
+    <button class="panel-btn" onclick="inviteMembers()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+      </svg>
+      Invite Members
+    </button>
+    <button class="panel-btn danger" onclick="leaveGroup()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Leave Group
+    </button>
+  </div>
+</aside>
+
+<!-- INVITE MODAL -->
+<div class="modal-backdrop" id="invite-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('invite-modal')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal-title">Invite Members</div>
+    <div class="modal-sub">Share this link with anyone you'd like to invite to this group.</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="text" id="invite-link" readonly
+        style="flex:1;padding:10px 14px;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none"
+        value="https://echo.app/join/{{ group.id }}/abc123"/>
+      <button class="btn-primary btn-sm" onclick="copyInvite()">Copy</button>
+    </div>
+    <div style="margin-top:16px;color:var(--muted);font-size:12px">This link expires in 7 days.</div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+/* ─── Mock data ─────────────────────────────────────────────────
+   Replace with:
+     GET /api/conversations/          → list of joined groups
+     GET /api/conversations/{id}/messages/ → paginated messages
+     POST /api/conversations/{id}/messages/ → send message
+     GET /api/conversations/{id}/members/  → member list
+─────────────────────────────────────────────────────────────── */
+
+const MY_GROUPS = [
+  { id:1, name:'Design System',    emoji:'🎨', color:'av-1', preview:'Mia: new token file…',    unread:5  },
+  { id:2, name:'Dev Ops Crew',     emoji:'⚙️', color:'av-2', preview:'Omar: pipeline green…',   unread:0  },
+  { id:3, name:'Product Strategy', emoji:'🧭', color:'av-4', preview:'Sofia: roadmap Monday',    unread:2  },
+  { id:4, name:'Frontend Guild',   emoji:'💻', color:'av-6', preview:'Kai: anyone tried Bun?',  unread:0  },
+  { id:5, name:'Random & Fun',     emoji:'🎉', color:'av-3', preview:'Lena: hahaha this is…',   unread:11 },
+];
+
+const CURRENT_ID = parseInt('{{ group.id }}') || 1;
+
+const COLORS = ['av-1','av-2','av-3','av-4','av-5','av-6','av-7','av-8'];
+
+const MEMBERS = [
+  { id:1, name:'You (Aria Chen)',  initials:'AC', color:'av-2', role:'admin',  status:'online'  },
+  { id:2, name:'Mia Torres',       initials:'MT', color:'av-5', role:'member', status:'online'  },
+  { id:3, name:'Kai Rivers',       initials:'KR', color:'av-4', role:'member', status:'online'  },
+  { id:4, name:'Omar Solis',       initials:'OS', color:'av-3', role:'member', status:'away'    },
+  { id:5, name:'Lena Park',        initials:'LP', color:'av-1', role:'member', status:'online'  },
+  { id:6, name:'Marco Reyes',      initials:'MR', color:'av-7', role:'member', status:'offline' },
+  { id:7, name:'Sofia Lin',        initials:'SL', color:'av-8', role:'member', status:'offline' },
+];
+
+const MOCK_MESSAGES = [
+  { id:1,  from:'Mia Torres',  initials:'MT', color:'av-5', me:false, text:'Good morning everyone! Just pushed the new design token file to the repo.', time:'9:12 AM', reactions:[{e:'🎨',n:4,mine:false},{e:'🚀',n:2,mine:false}] },
+  { id:2,  from:'Kai Rivers',  initials:'KR', color:'av-4', me:false, text:'Nice! Does it include the dark mode palette?', time:'9:14 AM', reactions:[] },
+  { id:3,  from:'You',         initials:'AC', color:'av-2', me:true,  text:'Yes! Both light and dark, plus the semantic aliases are all mapped.', time:'9:15 AM', reactions:[{e:'❤️',n:3,mine:true}] },
+  { id:4,  from:'You',         initials:'AC', color:'av-2', me:true,  text:'There\'s also a new spacing scale and updated border radius tokens.', time:'9:15 AM', reactions:[] },
+  { id:5,  from:'Mia Torres',  initials:'MT', color:'av-5', me:false, text:'That\'s exactly what we needed for the mobile components. Great timing 🙌', time:'9:18 AM', reactions:[{e:'✨',n:5,mine:false}] },
+  { id:6,  from:'Omar Solis',  initials:'OS', color:'av-3', me:false, text:'Can someone share the Figma link? I\'m having trouble finding it in the workspace.', time:'9:21 AM', reactions:[] },
+  { id:7,  from:'Kai Rivers',  initials:'KR', color:'av-4', me:false, text:'https://figma.com/file/... — it\'s also pinned in the channel header now', time:'9:22 AM', reactions:[{e:'👍',n:2,mine:false}] },
+  { id:8,  from:'You',         initials:'AC', color:'av-2', me:true,  text:'FYI I\'m scheduling a quick design review for the new component variants at 3pm today. Loom link incoming.', time:'10:05 AM', reactions:[] },
+  { id:9,  from:'Lena Park',   initials:'LP', color:'av-1', me:false, text:'Perfect, I\'ll be there 👋', time:'10:07 AM', reactions:[] },
+  { id:10, from:'Mia Torres',  initials:'MT', color:'av-5', me:false, text:'Same, blocking off the time now', time:'10:08 AM', reactions:[] },
+];
+
+const QUICK_EMOJIS = ['👍','❤️','😂','🎉','🚀','✨','🔥','👀','💯','🙌'];
+let replyingTo = null;
+let emojiPickerOpen = false;
+
+/* ── Render group nav ── */
+function renderGroupNav() {
+  const list = document.getElementById('group-nav-list');
+  list.innerHTML = MY_GROUPS.map(g => `
+    <a class="group-nav-item ${g.id===CURRENT_ID?'active':''}" href="/conversations/${g.id}/chat/">
+      <div class="gni-icon ${g.color}">${g.emoji}</div>
+      <div class="gni-meta">
+        <div class="gni-name">${g.name}</div>
+        <div class="gni-preview">${g.preview}</div>
+      </div>
+      ${g.unread ? `<div class="gni-badge">${g.unread}</div>` : ''}
+    </a>`).join('');
+}
+
+/* ── Render messages ── */
+function renderMessages(msgs) {
+  const container = document.getElementById('messages');
+  container.innerHTML = '<div class="day-sep">Today</div>';
+
+  msgs.forEach((msg, i) => {
+    const prev = msgs[i-1];
+    const continuation = prev && prev.from === msg.from && !prev.me === !msg.me;
+    const el = buildMsgEl(msg, continuation);
+    container.appendChild(el);
+  });
+
+  // typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'typing-row';
+  typing.id = 'typing-indicator';
+  typing.style.display = 'none';
+  typing.innerHTML = `
+    <div class="msg-avatar av-5" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0">MT</div>
+    <div>
+      <div class="typing-bubble">
+        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+      </div>
+      <div class="typing-who">Mia is typing…</div>
+    </div>`;
+  container.appendChild(typing);
+
+  container.scrollTop = container.scrollHeight;
+}
+
+function buildMsgEl(msg, continuation) {
+  const div = document.createElement('div');
+  div.className = `msg-row${msg.me?' me':''}${continuation?' continuation':''}`;
+  div.dataset.id = msg.id;
+
+  const reactionsHtml = msg.reactions.length
+    ? `<div class="reactions">${msg.reactions.map(r =>
+        `<div class="reaction ${r.mine?'mine':''}" onclick="toggleReaction(${msg.id},'${r.e}')">
+          ${r.e} <span class="reaction-count">${r.n}</span>
+        </div>`).join('')}</div>`
+    : '';
+
+  div.innerHTML = `
+    <div class="msg-actions">
+      <button class="msg-action-btn" onclick="replyTo(${msg.id},'${escHtml(msg.from)}','${escHtml(msg.text.slice(0,60))}')" title="Reply">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+        </svg>
+      </button>
+      <button class="msg-action-btn" onclick="addReaction(${msg.id})" title="React">😊</button>
+      ${msg.me ? `<button class="msg-action-btn" onclick="deleteMsg(${msg.id})" title="Delete">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>` : `<button class="msg-action-btn" title="More">···</button>`}
+    </div>
+    <div class="msg-avatar-wrap">
+      <div class="msg-avatar ${msg.color}">${msg.initials}</div>
+    </div>
+    <div class="msg-content">
+      <div class="msg-meta-row">
+        <span class="msg-sender-name">${msg.from}</span>
+        <span class="msg-time-stamp">${msg.time}</span>
+      </div>
+      <div class="bubble">${escHtml(msg.text)}</div>
+      ${reactionsHtml}
+    </div>`;
+  return div;
+}
+
+/* ── Members panel ── */
+function renderMembers() {
+  const online  = MEMBERS.filter(m => m.status === 'online');
+  const away    = MEMBERS.filter(m => m.status === 'away');
+  const offline = MEMBERS.filter(m => m.status === 'offline');
+
+  document.getElementById('panel-online').textContent = online.length;
+
+  let html = '';
+  if (online.length) {
+    html += `<div class="member-section-label">Online — ${online.length}</div>`;
+    html += online.map(m => memberHtml(m)).join('');
+  }
+  if (away.length) {
+    html += `<div class="member-section-label">Away — ${away.length}</div>`;
+    html += away.map(m => memberHtml(m)).join('');
+  }
+  if (offline.length) {
+    html += `<div class="member-section-label">Offline — ${offline.length}</div>`;
+    html += offline.map(m => memberHtml(m)).join('');
+  }
+  document.getElementById('members-body').innerHTML = html;
+}
+
+function memberHtml(m) {
+  return `
+    <div class="member-item">
+      <div class="member-avatar ${m.color}">
+        ${m.initials}
+        <div class="member-status ${m.status}"></div>
+      </div>
+      <span class="member-name">${m.name}</span>
+      ${m.role==='admin' ? '<span class="member-role">admin</span>' : ''}
+    </div>`;
+}
+
+/* ── Quick emoji picker ── */
+function buildEmojiPicker() {
+  const wrap = document.querySelector('#emoji-picker > div');
+  wrap.innerHTML = QUICK_EMOJIS.map(e =>
+    `<button style="width:36px;height:36px;border-radius:9px;border:none;background:var(--surface-3);cursor:pointer;font-size:18px;transition:transform .1s"
+      onmouseenter="this.style.transform='scale(1.15)'" onmouseleave="this.style.transform=''"
+      onclick="insertEmoji('${e}')">${e}</button>`
+  ).join('');
+}
+
+function toggleEmoji() {
+  emojiPickerOpen = !emojiPickerOpen;
+  document.getElementById('emoji-picker').style.display = emojiPickerOpen ? 'block' : 'none';
+}
+
+function insertEmoji(e) {
+  const input = document.getElementById('msg-input');
+  input.value += e;
+  input.focus();
+  toggleEmoji();
+}
+
+/* ── Send message ── */
+function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  const msgs = document.getElementById('messages');
+  const typing = document.getElementById('typing-indicator');
+
+  const now  = new Date();
+  const time = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+  const newMsg = { id: Date.now(), from:'You', initials:'AC', color:'av-2', me:true, text, time, reactions:[] };
+  const el = buildMsgEl(newMsg, false);
+  el.classList.add('new-msg');
+  msgs.insertBefore(el, typing);
+
+  input.value = '';
+  input.style.height = '';
+  msgs.scrollTop = msgs.scrollHeight;
+
+  cancelReply();
+
+  // Fake typing reply
+  setTimeout(() => {
+    typing.style.display = 'flex';
+    msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(() => { typing.style.display = 'none'; }, 2000);
+  }, 600);
+}
+
+/* ── Reply ── */
+function replyTo(id, sender, text) {
+  replyingTo = id;
+  document.getElementById('reply-sender').textContent = sender;
+  document.getElementById('reply-text').textContent   = text;
+  document.getElementById('reply-bar').classList.add('show');
+  document.getElementById('msg-input').focus();
+}
+function cancelReply() {
+  replyingTo = null;
+  document.getElementById('reply-bar').classList.remove('show');
+}
+
+/* ── Reactions ── */
+function toggleReaction(msgId, emoji) { /* Real: PATCH /api/messages/{msgId}/reactions/ */ }
+function addReaction(msgId) { /* Could open a mini emoji picker */ }
+
+/* ── Delete ── */
+function deleteMsg(msgId) {
+  const el = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+  if (el) { el.style.opacity='0.3'; el.style.pointerEvents='none'; }
+  /* Real: DELETE /api/conversations/{groupId}/messages/{msgId}/ */
+}
+
+/* ── Leave / invite ── */
+function leaveGroup() {
+  if (confirm('Are you sure you want to leave this group?')) {
+    /* Real: DELETE /api/conversations/{id}/leave/ */
+    window.location.href = '/conversations/';
+  }
+}
+
+function inviteMembers() { document.getElementById('invite-modal').classList.add('show'); }
+
+function copyInvite() {
+  const link = document.getElementById('invite-link').value;
+  navigator.clipboard.writeText(link).then(() => alert('Link copied!'));
+}
+
+/* ── Helpers ── */
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height = '';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', function(e) { if (e.target===this) closeModal(this.id); });
+});
+
+/* ── Init ── */
+renderGroupNav();
+renderMessages(MOCK_MESSAGES);
+renderMembers();
+buildEmojiPicker();
+</script>
+{% endblock %}

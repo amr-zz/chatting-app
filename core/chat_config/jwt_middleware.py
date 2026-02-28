@@ -5,7 +5,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 
 
-
 class JWTAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         token = self.get_token_from_scope(scope)

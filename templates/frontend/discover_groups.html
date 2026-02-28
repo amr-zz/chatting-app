@@ -1,0 +1,406 @@
+{% extends "frontend/base_app.html" %}
+{% block title %}Discover Groups — Echo{% endblock %}
+{% block nav_discover %}active{% endblock %}
+
+{% block extra_style %}
+<style>
+  .discover-main {
+    flex: 1; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .discover-topbar {
+    padding: 24px 32px 0;
+    flex-shrink: 0;
+    position: relative; z-index: 1;
+    animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .discover-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px; font-weight: 600; color: #fff;
+    letter-spacing: -0.5px; margin-bottom: 6px;
+  }
+  .discover-heading span {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .discover-sub { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+
+  /* filter row */
+  .filter-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 0;
+  }
+  .filter-search { flex: 1; min-width: 200px; max-width: 380px; }
+  .filter-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .cat-btn {
+    padding: 7px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .cat-btn:hover { background: var(--surface-3); color: var(--text); }
+  .cat-btn.active {
+    background: rgba(139,92,246,0.15);
+    color: var(--accent);
+    border-color: rgba(139,92,246,0.35);
+  }
+
+  /* divider */
+  .discover-divider {
+    height: 1px; background: var(--border);
+    margin: 20px 32px 0; flex-shrink: 0;
+  }
+
+  /* ── GRID ── */
+  .discover-grid-wrap { flex: 1; overflow-y: auto; padding: 20px 32px 32px; position: relative; z-index: 1; }
+  .discover-grid-wrap::-webkit-scrollbar { width: 4px; }
+  .discover-grid-wrap::-webkit-scrollbar-track { background: transparent; }
+  .discover-grid-wrap::-webkit-scrollbar-thumb { background: var(--muted-2); border-radius: 4px; }
+
+  .results-label {
+    font-size: 12px; color: var(--muted); margin-bottom: 16px; font-weight: 500;
+  }
+  .results-label b { color: var(--text); }
+
+  .discover-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── DISCOVER CARD ── */
+  .d-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    animation: slideUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .d-card:hover { border-color: var(--border-hi); transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.35); }
+
+  .d-card-banner {
+    height: 72px; position: relative; overflow: hidden; flex-shrink: 0;
+  }
+  .d-card-banner-fill {
+    position: absolute; inset: 0; opacity: 0.6;
+  }
+
+  .d-card-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+  .d-card-head { display: flex; align-items: flex-start; gap: 12px; margin-top: -36px; position: relative; }
+  .d-card-icon {
+    width: 54px; height: 54px; border-radius: 15px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0;
+    border: 3px solid var(--surface);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .d-card-head-info { padding-top: 38px; flex: 1; min-width: 0; }
+  .d-card-name { font-size: 15px; font-weight: 500; color: #fff;     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 150px; }
+  .d-card-stats { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .d-card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .d-card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .d-card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--border); padding-top: 12px; margin-top: 2px;
+  }
+  .d-card-members { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .avatar-stack { display: flex; }
+  .avatar-stack-item {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--surface);
+    margin-left: -6px; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600; color: #fff;
+  }
+  .avatar-stack-item:first-child { margin-left: 0; }
+
+  .join-btn {
+    padding: 7px 18px;
+    border-radius: 99px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .join-btn.join {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    box-shadow: 0 2px 10px var(--accent-glow);
+  }
+  .modal-title{
+        white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 250px;
+  }
+  .join-btn.join:hover { opacity: 0.85; transform: scale(1.03); }
+  .join-btn.joined {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid rgba(52,211,153,0.25);
+    cursor: default;
+  }
+  .join-btn.leave {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid rgba(248,113,113,0.25);
+  }
+  .join-btn.leave:hover { background: rgba(248,113,113,0.18); }
+
+  /* no-results */
+  .no-results {
+    grid-column: 1/-1;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 60px 0; gap: 12px; color: var(--muted);
+  }
+  .no-results svg { width: 44px; height: 44px; opacity: 0.2; }
+  .no-results p { font-size: 14px; }
+
+  /* modal */
+  #join-modal-icon{
+    align-items: center;
+    justify-content: center;
+    display: flex;
+    margin-bottom: 12px;
+    border-radius: 50px;
+    width: 70px;
+    height: 70px;
+  }
+</style>
+{% endblock %}
+
+{% block shell_content %}
+<div class="discover-main">
+  <div class="main">
+    <div class="discover-topbar">
+      <div class="discover-heading">Discover <span>Groups</span></div>
+      <div class="discover-sub">Find communities that match your interests and jump right in.</div>
+      <div class="filter-row">
+        <div class="filter-search search-wrap">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input type="text" id="discover-search" placeholder="Search groups by name or topic…" oninput="applyFilters()"/>
+        </div>
+        <div class="filter-cats" id="cat-buttons">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="discover-divider"></div>
+
+    <div class="discover-grid-wrap">
+      <div class="results-label" id="results-label"></div>
+      <div class="discover-grid" id="discover-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- JOIN CONFIRM MODAL -->
+<div class="modal-backdrop" id="join-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('join-modal')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <div id="join-modal-icon" style="font-size:42px;margin-bottom:10px"></div>
+      <div style="display: flex;flex-direction: column;">
+          <div class="modal-title" id="join-modal-name">Group Name</div>
+          <div class="modal-sub" id="join-modal-desc">Group description here.</div>
+      </div>
+    </div>
+
+
+    <div class="alert error" id="join-error"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn-ghost" onclick="closeModal('join-modal')">Cancel</button>
+      <button class="btn-primary" id="join-confirm-btn" onclick="confirmJoin()">
+        <span class="btn-text">Join Group</span>
+        <div class="spinner" style="display:none"></div>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+const CATEGORIES = ['All','Design','Engineering','Product','Social','Research','Marketing','AI'];
+let activeCategory = 'All';
+let pendingGroupId = null;
+
+/* ─── Mock data — replace with GET /api/conversations/public/ ──── */
+let ALL_GROUPS = []
+let accessToken = localStorage.getItem('access_token') || null;
+const refreshToken = localStorage.getItem('refresh_token') || null;
+const AVATAR_COLORS = ['av-1','av-2','av-3','av-4','av-5','av-6','av-7','av-8'];
+const colors = ["#E63946", "#F1FAEE", "#A8DADC", "#457B9D", "#1D3557"];
+
+
+async function fetchGroupsAndRenderContent() {
+    const res = await fetch(`${window.location.origin}/api/conversations/discover/`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+  });
+
+    try {
+      if (res.status === 401 && refreshToken) {
+        accessToken = await expiredAccessToken(refreshToken);
+        return await fetchGroupsAndRenderContent(); // Retry with new token
+      } else if (!res.ok) {
+        throw new Error(`Error fetching conversations: ${res.status}`);
+      } else {
+        ALL_GROUPS = await res.json();
+        applyFilters();
+      }
+  } catch (err) {
+    console.error(err);
+    // localStorage.removeItem('access_token');
+    // localStorage.removeItem('refresh_token');
+    // window.location.href = '/login/';
+  }
+}
+
+
+
+
+function applyFilters() {
+  const q = document.getElementById('discover-search').value.toLowerCase();
+  let results = ALL_GROUPS;
+  if (q) results = results.filter(g => g.conversation_name.toLowerCase().includes(q) || g.conversation_description.toLowerCase().includes(q));
+  renderGrid(results);
+}
+
+function renderGrid(groups) {
+  const grid = document.getElementById('discover-grid');
+  const label = document.getElementById('results-label');
+  label.innerHTML = `<b>${groups.length}</b> group${groups.length!==1?'s':''} found`;
+  console.log(groups);
+  if (!groups.length) {
+    grid.innerHTML = `
+      <div class="no-results">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p>No groups found. Try a different search or category.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = groups.map((g, i) => {
+      const avatars = Array.from({length: g.member_count > 3 ? 3 : g.member_count}, (_,j) =>
+      `<div class="avatar-stack-item" style="z-index:${3-j}; background-color: ${colors[Math.floor(Math.random() * colors.length)]}"></div>`
+    ).join('');
+    return `
+    <div class="d-card" style="animation-delay:${i*0.04}s">
+      <div class="d-card-banner">
+        <div class="d-card-banner-fill ${g.color}"></div>
+      </div>
+      <div class="d-card-body">
+        <div class="d-card-head">
+          <div class="d-card-icon ${g.color}">${g.emoji}</div>
+          <div class="d-card-head-info">
+            <div class="d-card-name">${g.conversation_name}</div>
+            <div class="d-card-stats">${g.member_count} members</div>
+          </div>
+        </div>
+        <div class="d-card-desc">${g.conversation_description}</div>
+        <div class="d-card-footer">
+          <div class="d-card-members">
+            <div class="avatar-stack">${avatars}</div>
+            ${g.member_count > 3 ? "+" : ""}${g.member_count} ${g.member_count > 3 ? "more" : ""}
+          </div>
+          <button class="join-btn join" onclick="openJoinModal(${g.id})">Join</button>
+        </div>
+      </div>
+    </div>`
+  }).join('');
+}
+
+function openJoinModal(id) {
+  const g = ALL_GROUPS.find(x => x.id === id);
+  if (!g) return;
+  pendingGroupId = id;
+  document.getElementById('join-modal-icon').textContent = g.emoji;
+  document.getElementById('join-modal-name').textContent = g.conversation_name;
+  document.getElementById('join-modal-desc').textContent = g.conversation_description;
+  document.getElementById('join-modal-icon').classList.add(g.color)
+  document.getElementById('join-error').classList.remove('show');
+  document.getElementById('join-modal').classList.add('show');
+}
+
+async function confirmJoin() {
+  const btn     = document.getElementById('join-confirm-btn');
+  const errEl   = document.getElementById('join-error');
+  const spinner = btn.querySelector('.spinner');
+  const label   = btn.querySelector('.btn-text');
+
+  errEl.classList.remove('show');
+  label.style.display = 'none';
+  spinner.style.display = 'block';
+  btn.disabled = true;
+
+  try {
+    /* Real: POST /api/conversations/{pendingGroupId}/join/ */
+    const res = await fetch(`${window.location.origin}/api/conversations/join/${pendingGroupId}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (res.ok ){
+      closeModal('join-modal');
+      window.location.href = `/conversations/${pendingGroupId}`;
+    }
+    
+
+    
+  } catch {
+    errEl.textContent = 'Failed to join. Please try again.';
+    errEl.classList.add('show');
+  } finally {
+    label.style.display = '';
+    spinner.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+async function leaveGroup(id, e) {
+  e.preventDefault(); e.stopPropagation();
+  /* Real: DELETE /api/conversations/{id}/leave/ */
+  await new Promise(r => setTimeout(r, 400));
+  const g = ALL_GROUPS.find(x => x.id === id);
+  if (g) g.joined = false;
+  applyFilters();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// close on backdrop click
+document.getElementById('join-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('join-modal');
+});
+
+fetchGroupsAndRenderContent();
+</script>
+{% endblock %}

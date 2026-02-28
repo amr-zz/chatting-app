@@ -1,0 +1,100 @@
+{% extends "frontend/base_auth.html" %}
+{% block title %}Login{% endblock %}
+
+{% block body %}
+<div class="auth-card">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+      </svg>
+    </div>
+    <div class="card-title">Welcome back</div>
+    <div class="card-sub">Sign in to continue</div>
+  </div>
+
+  <div class="alert error"   id="alert-error"></div>
+  <div class="alert success" id="alert-success"></div>
+
+  <form id="login-form" novalidate>
+    <div class="form-group">
+      <label>Username</label>
+      <div class="input-wrap">
+        <input type="text" id="username" placeholder="Your Username" autocomplete="username" required />
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="row-between">
+        <label>Password</label>
+        <a href="/forget-password/">Forgot password?</a>
+      </div>
+      <div class="input-wrap">
+        <input type="password" id="password" placeholder="Your password" autocomplete="current-password" required />
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+    </div>
+
+    <button type="submit" class="btn" id="login-btn">
+      <span class="btn-text">Sign In</span>
+      <div class="spinner"></div>
+    </button>
+  </form>
+
+  <div class="footer-links">
+    No account yet? <a href="/register/">Create one</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn   = document.getElementById('login-btn');
+    const errEl = document.getElementById('alert-error');
+    const okEl  = document.getElementById('alert-success');
+
+    const username    = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    errEl.classList.remove('show');
+    okEl.classList.remove('show');
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${window.location.origin}/api/users/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        // Store tokens in localStorage
+        localStorage.setItem('access_token',  data.access);
+        localStorage.setItem('refresh_token', data.refresh);
+
+        okEl.textContent = 'Login successful! Redirecting…';
+        okEl.classList.add('show');
+        setTimeout(() => window.location.href = '/conversations/', 1200);
+      } else {
+        const msg = data.detail || 'Invalid credentials.';
+        errEl.textContent = msg;
+        errEl.classList.add('show');
+      }
+    } catch {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.classList.add('show');
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Echo — Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0a0f;
+      --surface:     #111118;
+      --surface-2:   #16161f;
+      --surface-3:   #1c1c28;
+      --border:      rgba(255,255,255,0.07);
+      --text:        #e8e8f0;
+      --muted:       #6b6b80;
+      --muted-2:     #3e3e52;
+      --accent:      #8b5cf6;
+      --accent-dark: #7c3aed;
+      --accent-glow: rgba(139,92,246,0.2);
+      --accent-2:    #06b6d4;
+      --danger:      #f87171;
+      --success:     #34d399;
+      --online:      #34d399;
+      --me-bubble:   linear-gradient(135deg,#8b5cf6,#7c3aed);
+      --them-bubble: #1c1c28;
+      --radius:      14px;
+      --sidebar-w:   300px;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── GATE SCREEN (shown when logged out) ─────────────────── */
+    #gate {
+display: flex;      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      animation: fadeIn 0.4s ease;
+    }
+
+
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    .gate-glow {
+      position: absolute;
+      top: -20%; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 400px;
+      background: radial-gradient(ellipse, rgba(139,92,246,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .gate-glow-2 {
+      position: absolute;
+      bottom: -15%; right: -5%;
+      width: 500px; height: 400px;
+      background: radial-gradient(ellipse, rgba(6,182,212,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .gate-hero {
+      position: relative;
+      text-align: center;
+      padding: 0 24px;
+      animation: slideUp 0.6s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes slideUp {
+      from{opacity:0;transform:translateY(30px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+
+    .gate-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-radius: 22px;
+      margin-bottom: 28px;
+      box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(139,92,246,0.1);
+    }
+    .gate-logo svg { width: 36px; height: 36px; color: #fff; }
+
+    .gate-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(36px, 6vw, 56px);
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .gate-title span {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gate-sub {
+      font-size: 17px;
+      color: var(--muted);
+      font-weight: 300;
+      max-width: 400px;
+      margin: 0 auto 44px;
+      line-height: 1.6;
+    }
+
+    .gate-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .gate-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      border-radius: var(--radius);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+    }
+    .gate-btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff;
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+    .gate-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px var(--accent-glow); }
+
+    .gate-btn-ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .gate-btn-ghost:hover { transform: translateY(-2px); background: var(--surface-2); }
+
+    .gate-features {
+      display: flex;
+      gap: 32px;
+      margin-top: 64px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: slideUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+    }
+    .gate-feat {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 400;
+    }
+    .gate-feat svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+
+
+  </style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-glow"></div>
+  <div class="gate-glow-2"></div>
+
+  <div class="gate-hero">
+    <div class="gate-logo">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+      </svg>
+    </div>
+
+    <div class="gate-title">
+      Where every<br/><span>conversation</span> lives.
+    </div>
+
+    <div class="gate-sub">
+      Echo brings your people together in one beautifully crafted space — fast, private, and always in sync.
+    </div>
+
+    <div class="gate-btns">
+      <a href="/register/" class="gate-btn gate-btn-primary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+        </svg>
+        Get started free
+      </a>
+      <a href="/login/" class="gate-btn gate-btn-ghost">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+        </svg>
+        Sign in
+      </a>
+    </div>
+
+    <div class="gate-features">
+      <div class="gate-feat">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        End-to-end encrypted
+      </div>
+      <div class="gate-feat">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        Real-time messaging
+      </div>
+      <div class="gate-feat">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Group & DM support
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  let accessToken = localStorage.getItem("access_token")
+
+  if(accessToken){
+    window.location.href = "/conversations"
+  }
+</script>
+
+</body>
+</html>
