@@ -9,30 +9,39 @@ import json
 
 class ConversationConsumer(AsyncWebsocketConsumer):
     
-
     async def connect(self):
         """Called when the websocket is connected."""
+
+        if self.scope.get('error') == 'Invalid token':
+            await self.accept()
+            await self.close(4001, 'invalid token')
+            return
+        
         self.conversation_id = self.scope['url_route']['kwargs']['conversation_id']
         self.conversation_name = self.scope['url_route']['kwargs']['conversation_name']
         self.group_name = f'conversation_{self.conversation_id}'
-
-
+            
         users = await self.get_conversation_users(self.conversation_id)
         if self.scope['user'] not in users:
-            await self.close()
+            await self.accept()
+            await self.close(4005, 'not in conversation')
+
         else:
             await self.channel_layer.group_add(
                 self.group_name,
                 self.channel_name
             )
             await self.accept()
+            await self.send(text_data=json.dumps({"type": "username","username": self.scope['user'].username}))
 
     async def disconnect(self, close_code):
         """Called when the websocket is disconnected."""
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+
 
     async def receive(self, text_data):
         """Called when Recieving anything from the websocket."""
@@ -95,7 +104,6 @@ class ConversationConsumer(AsyncWebsocketConsumer):
                     'type': 'error',
                     'message': 'failed to delete.'
                 }))
-
 
     async def conversation_message(self, event):
         """Called when a message is sent to the websocket."""
