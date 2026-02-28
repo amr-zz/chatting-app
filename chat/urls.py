@@ -8,13 +8,15 @@ from .views import (CreateConversation,
                     SendMessage,
                     UpdateMessage,
                     DeleteMessage,
-                    DiscoverConversations)
+                    DiscoverConversations,
+                    JoinConversation,)
 
 
 urlpatterns = [
     path('', ListConversations.as_view(), name='list-convos'),
     path('discover/', DiscoverConversations.as_view(), name='discover-convos'),
     path('<int:pk>/', DetailConversation.as_view()),
+    path('join/<int:pk>/', JoinConversation.as_view()),
     path('update/<int:pk>/', UpdateConversation.as_view()),
     path('delete/<int:pk>/', DeleteConversation.as_view()),
     path('messages/<int:pk>/',DisplayConversationMessages.as_view()),
