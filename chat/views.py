@@ -48,7 +48,22 @@ class DetailConversation(APIView):
             return Response({"error": f"Conversation with id {pk} not found or you are not a member."},status=status.HTTP_404_NOT_FOUND)
         serializer = ConversationSerializer(qs[0])
         return Response(serializer.data)
+
+
+class JoinConversation(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk=None, format=None):
+        try:
+            conversation = Conversation.objects.get(pk=pk)
+        except Conversation.DoesNotExist:
+            return Response({"message": f"Conversation with id {pk} not found."}, status=status.HTTP_404_NOT_FOUND)
+        conversation.members.add(request.user)
+        if request.user not in conversation.members.all():
+            return Response({"message": "You are already a member of the conversation."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Joined the conversation successfully!"}, status=status.HTTP_200_OK)
     
+
 class DisplayConversationMessages(APIView):
     permission_classes = [IsAuthenticated]
 
